@@ -1,11 +1,10 @@
-// src/pages/AdminDashboard.jsx
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../supabase/supabaseClient';
 import { useAuth } from '../../provider/AuthContext';
 import { 
   FiUsers, FiBarChart2, FiSettings, FiMail, FiFileText, 
-  FiLock, FiDatabase, FiShoppingCart, FiMessageCircle 
+  FiLock, FiDatabase, FiShoppingCart, FiMessageCircle, FiPlus, FiX 
 } from 'react-icons/fi';
 
 const AdminDashboard = () => {
@@ -15,6 +14,9 @@ const AdminDashboard = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [stats, setStats] = useState(null);
   const [users, setUsers] = useState([]);
+  const [questionSets, setQuestionSets] = useState([]);
+  const [currentQuestionSet, setCurrentQuestionSet] = useState(null);
+  const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('dashboard');
   const [error, setError] = useState('');
 
@@ -39,6 +41,7 @@ const AdminDashboard = () => {
           setIsAdmin(true);
           fetchStats();
           fetchUsers();
+          fetchQuestionSets();
         } else {
           navigate('/');
         }
@@ -56,14 +59,15 @@ const AdminDashboard = () => {
   const fetchStats = async () => {
     try {
       setLoading(true);
+      setError('');
       
       // Get user count
       const { count: userCount } = await supabase
         .from('profiles')
         .select('*', { count: 'exact' });
       
-      // Get quiz set count
-      const { count: quizCount } = await supabase
+      // Get question set count
+      const { count: questionSetCount } = await supabase
         .from('question_sets')
         .select('*', { count: 'exact' });
       
@@ -76,7 +80,7 @@ const AdminDashboard = () => {
       
       setStats({
         userCount,
-        quizCount,
+        questionSetCount,
         todaySignups
       });
     } catch (err) {
@@ -87,9 +91,10 @@ const AdminDashboard = () => {
 
   const fetchUsers = async () => {
     try {
+      setError('');
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, email, created_at')
+        .select('id, email, created_at, role')
         .order('created_at', { ascending: false })
         .limit(10);
         
@@ -98,6 +103,91 @@ const AdminDashboard = () => {
     } catch (err) {
       setError('Failed to load users');
       console.error(err);
+    }
+  };
+
+  const fetchQuestionSets = async () => {
+    try {
+      setError('');
+      const { data, error } = await supabase
+        .from('question_sets')
+        .select('id, title, question_type, created_at, user_id, last_score')
+        .order('created_at', { ascending: false });
+        
+      if (error) throw error;
+      setQuestionSets(data);
+    } catch (err) {
+      setError('Failed to load question sets');
+      console.error(err);
+    }
+  };
+
+  const handleSaveQuestionSet = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    const questionSetData = {
+      title: formData.get('title'),
+      question_type: formData.get('question_type'),
+      questions: JSON.parse(formData.get('questions') || '[]'),
+      source_text: formData.get('source_text'),
+    };
+
+    try {
+      setError('');
+      if (isEditing && currentQuestionSet) {
+        // Update existing question set
+        const { error } = await supabase
+          .from('question_sets')
+          .update({
+            ...questionSetData,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', currentQuestionSet.id);
+          
+        if (error) throw error;
+      } else {
+        // Create new question set
+        const { error } = await supabase
+          .from('question_sets')
+          .insert({
+            ...questionSetData,
+            user_id: user.id,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+          
+        if (error) throw error;
+      }
+      
+      fetchQuestionSets();
+      setCurrentQuestionSet(null);
+      setIsEditing(false);
+    } catch (err) {
+      setError(`Failed to ${isEditing ? 'update' : 'create'} question set: ${err.message}`);
+      console.error(err);
+    }
+  };
+
+  const handleEditQuestionSet = (questionSet) => {
+    setCurrentQuestionSet(questionSet);
+    setIsEditing(true);
+  };
+
+  const handleDeleteQuestionSet = async (id) => {
+    if (window.confirm('Are you sure you want to delete this question set?')) {
+      try {
+        setError('');
+        const { error } = await supabase
+          .from('question_sets')
+          .delete()
+          .eq('id', id);
+          
+        if (error) throw error;
+        fetchQuestionSets();
+      } catch (err) {
+        setError('Failed to delete question set');
+        console.error(err);
+      }
     }
   };
 
@@ -182,7 +272,11 @@ const AdminDashboard = () => {
             </li>
             <li>
               <button
-                onClick={() => setActiveTab('content')}
+                onClick={() => {
+                  setActiveTab('content');
+                  setCurrentQuestionSet(null);
+                  setIsEditing(false);
+                }}
                 className={`w-full text-left px-4 py-3 rounded-lg flex items-center gap-3 transition ${
                   activeTab === 'content' 
                     ? 'bg-indigo-100 text-indigo-700 font-medium' 
@@ -255,8 +349,8 @@ const AdminDashboard = () => {
                         <FiFileText className="text-white text-2xl" />
                       </div>
                       <div>
-                        <p className="text-gray-600">Quiz Sets</p>
-                        <p className="text-3xl font-bold">{stats.quizCount}</p>
+                        <p className="text-gray-600">Question Sets</p>
+                        <p className="text-3xl font-bold">{stats.questionSetCount}</p>
                       </div>
                     </div>
                   </div>
@@ -285,16 +379,24 @@ const AdminDashboard = () => {
                   <table className="min-w-full border border-indigo-100">
                     <thead className="bg-indigo-50">
                       <tr>
-                        <th className="py-3 px-4 text-left text-gray-700 font-bold">User</th>
                         <th className="py-3 px-4 text-left text-gray-700 font-bold">Email</th>
+                        <th className="py-3 px-4 text-left text-gray-700 font-bold">Role</th>
                         <th className="py-3 px-4 text-left text-gray-700 font-bold">Joined</th>
                       </tr>
                     </thead>
                     <tbody>
                       {users.map(user => (
                         <tr key={user.id} className="border-b border-indigo-100 hover:bg-indigo-50">
-                          <td className="py-3 px-4">{user.username || 'N/A'}</td>
                           <td className="py-3 px-4">{user.email}</td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              user.role === 'admin' 
+                                ? 'bg-purple-100 text-purple-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {user.role || 'user'}
+                            </span>
+                          </td>
                           <td className="py-3 px-4">{new Date(user.created_at).toLocaleDateString()}</td>
                         </tr>
                       ))}
@@ -316,7 +418,7 @@ const AdminDashboard = () => {
                   <div className="flex gap-2">
                     <input 
                       type="text" 
-                      placeholder="Search by email or username..." 
+                      placeholder="Search by email..." 
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     />
                     <button className="bg-indigo-600 text-white px-4 py-2 rounded-lg font-medium">
@@ -344,23 +446,27 @@ const AdminDashboard = () => {
                   <table className="min-w-full border border-indigo-100">
                     <thead className="bg-indigo-50">
                       <tr>
-                        <th className="py-3 px-4 text-left text-gray-700 font-bold">ID</th>
-                        <th className="py-3 px-4 text-left text-gray-700 font-bold">Username</th>
                         <th className="py-3 px-4 text-left text-gray-700 font-bold">Email</th>
-                        <th className="py-3 px-4 text-left text-gray-700 font-bold">Status</th>
+                        <th className="py-3 px-4 text-left text-gray-700 font-bold">Role</th>
+                        <th className="py-3 px-4 text-left text-gray-700 font-bold">Joined</th>
                         <th className="py-3 px-4 text-left text-gray-700 font-bold">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
                       {users.map(user => (
                         <tr key={user.id} className="border-b border-indigo-100 hover:bg-indigo-50">
-                          <td className="py-3 px-4">{user.id.slice(0, 8)}...</td>
-                          <td className="py-3 px-4">{user.username || 'N/A'}</td>
                           <td className="py-3 px-4">{user.email}</td>
                           <td className="py-3 px-4">
-                            <span className="px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
-                              Active
+                            <span className={`px-2 py-1 rounded-full text-xs ${
+                              user.role === 'admin' 
+                                ? 'bg-purple-100 text-purple-800' 
+                                : 'bg-blue-100 text-blue-800'
+                            }`}>
+                              {user.role || 'user'}
                             </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {new Date(user.created_at).toLocaleDateString()}
                           </td>
                           <td className="py-3 px-4">
                             <div className="flex gap-2">
@@ -381,27 +487,158 @@ const AdminDashboard = () => {
             </div>
           )}
 
-          {/* Other tabs would go here with similar structure */}
+          {/* Content Management Tab */}
           {activeTab === 'content' && (
             <div className="bg-white rounded-2xl shadow-lg p-6">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6">Content Management</h2>
-              <div className="text-center py-12 bg-indigo-50 rounded-2xl border border-indigo-100">
-                <div className="bg-gradient-to-br from-indigo-100 to-indigo-200 rounded-2xl p-6 inline-flex items-center justify-center mb-8">
-                  <div className="bg-white rounded-xl p-4">
-                    <FiFileText className="text-indigo-600 text-4xl" />
-                  </div>
-                </div>
-                <h3 className="text-2xl font-bold text-gray-900 mb-4">Content Management</h3>
-                <p className="text-gray-600 max-w-md mx-auto mb-8">
-                  Manage all quiz content, user-generated materials, and system content in one place.
-                </p>
-                <button className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition">
-                  Explore Content
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-bold text-gray-900">Question Set Management</h2>
+                <button 
+                  onClick={() => {
+                    setCurrentQuestionSet(null);
+                    setIsEditing(!isEditing);
+                  }}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition ${
+                    isEditing 
+                      ? 'bg-red-100 text-red-700 hover:bg-red-200' 
+                      : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                  }`}
+                >
+                  {isEditing ? (
+                    <>
+                      <FiX className="text-lg" /> Cancel
+                    </>
+                  ) : (
+                    <>
+                      <FiPlus className="text-lg" /> Create New
+                    </>
+                  )}
                 </button>
+              </div>
+              
+              {isEditing ? (
+                <div className="bg-indigo-50 rounded-2xl p-6 border border-indigo-100 mb-8">
+                  <h3 className="text-xl font-bold text-gray-900 mb-4">
+                    {currentQuestionSet ? 'Edit Question Set' : 'Create New Question Set'}
+                  </h3>
+                  <form onSubmit={handleSaveQuestionSet}>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-gray-700 mb-2">Title *</label>
+                        <input 
+                          type="text" 
+                          name="title"
+                          required
+                          defaultValue={currentQuestionSet?.title || ''}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          placeholder="Enter question set title"
+                        />
+                      </div>
+                      
+                      <div>
+                        <label className="block text-gray-700 mb-2">Question Type *</label>
+                        <select 
+                          name="question_type"
+                          required
+                          defaultValue={currentQuestionSet?.question_type || 'multiple_choice'}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                        >
+                          <option value="multiple_choice">Multiple Choice</option>
+                          <option value="true_false">True/False</option>
+                          <option value="short_answer">Short Answer</option>
+                        </select>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-gray-700 mb-2">Questions (JSON) *</label>
+                        <textarea 
+                          name="questions"
+                          required
+                          defaultValue={currentQuestionSet?.questions ? JSON.stringify(currentQuestionSet.questions, null, 2) : '[]'}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 font-mono text-sm"
+                          rows={8}
+                          placeholder='[{"question": "Sample question", "options": ["A", "B", "C"], "correctAnswer": 0}]'
+                        />
+                        <p className="text-sm text-gray-500 mt-1">
+                          Enter questions in JSON format. Each question should have "question", "options", and "correctAnswer".
+                        </p>
+                      </div>
+                      
+                      <div>
+                        <label className="block text-gray-700 mb-2">Source Text</label>
+                        <textarea 
+                          name="source_text"
+                          defaultValue={currentQuestionSet?.source_text || ''}
+                          className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                          rows={3}
+                          placeholder="Optional source material for the questions"
+                        />
+                      </div>
+                      
+                      <button 
+                        type="submit"
+                        className="bg-indigo-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-indigo-700 transition"
+                      >
+                        {currentQuestionSet ? 'Update Question Set' : 'Create Question Set'}
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              ) : null}
+              
+              <div className="bg-white rounded-2xl border border-indigo-100 p-6">
+                <h3 className="text-xl font-bold text-gray-900 mb-4">All Question Sets</h3>
+                <div className="overflow-x-auto">
+                  <table className="min-w-full border border-indigo-100">
+                    <thead className="bg-indigo-50">
+                      <tr>
+                        <th className="py-3 px-4 text-left text-gray-700 font-bold">Title</th>
+                        <th className="py-3 px-4 text-left text-gray-700 font-bold">Type</th>
+                        <th className="py-3 px-4 text-left text-gray-700 font-bold">Created</th>
+                        <th className="py-3 px-4 text-left text-gray-700 font-bold">Last Score</th>
+                        <th className="py-3 px-4 text-left text-gray-700 font-bold">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {questionSets.map(set => (
+                        <tr key={set.id} className="border-b border-indigo-100 hover:bg-indigo-50">
+                          <td className="py-3 px-4">{set.title}</td>
+                          <td className="py-3 px-4">
+                            <span className="capitalize px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">
+                              {set.question_type.replace('_', ' ')}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4">
+                            {new Date(set.created_at).toLocaleDateString()}
+                          </td>
+                          <td className="py-3 px-4">
+                            {set.last_score ? `${set.last_score}%` : 'N/A'}
+                          </td>
+                          <td className="py-3 px-4">
+                            <div className="flex gap-2">
+                              <button 
+                                onClick={() => handleEditQuestionSet(set)}
+                                className="text-indigo-600 hover:text-indigo-800"
+                              >
+                                Edit
+                              </button>
+                              <button 
+                                onClick={() => handleDeleteQuestionSet(set.id)}
+                                className="text-red-600 hover:text-red-800"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
           )}
 
+          {/* Analytics Tab */}
           {activeTab === 'analytics' && (
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Analytics Dashboard</h2>
@@ -422,6 +659,7 @@ const AdminDashboard = () => {
             </div>
           )}
 
+          {/* Settings Tab */}
           {activeTab === 'settings' && (
             <div className="bg-white rounded-2xl shadow-lg p-6">
               <h2 className="text-2xl font-bold text-gray-900 mb-6">Admin Settings</h2>

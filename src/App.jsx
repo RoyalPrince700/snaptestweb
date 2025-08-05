@@ -50,7 +50,7 @@ const PublicRoute = ({ children }) => {
     return <LoadingSpinner fullScreen />;
   }
   if (user) {
-    return <Navigate to="/my-questions" replace />;
+    return <Navigate to="/" replace />;
   }
   return children;
 };
@@ -71,7 +71,7 @@ function App() {
           <Route path="/confirm" element={<EmailConfirmation />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/terms-policy" element={<TermsPolicy />} />
-          <Route path="/admin" element={<PublicRoute><AdminDashboard /></PublicRoute>} />
+          <Route path="/admin" element={<AdminDashboard />} />
 
 
           

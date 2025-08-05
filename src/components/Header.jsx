@@ -9,17 +9,44 @@ import LOGO from "../assets/snaptest-logo.png";
 
 export const Header = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth(); // Added user from AuthContext
   const navigate = useNavigate();
+  const [isAdmin, setIsAdmin] = useState(false);
 
   // Prevent background scroll when menu is open
   useEffect(() => {
     document.body.style.overflow = mobileMenuOpen ? "hidden" : "";
   }, [mobileMenuOpen]);
 
+  // Check admin status
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (user) {
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('is_admin')
+            .eq('id', user.id)
+            .single();
+            
+          if (error) throw error;
+          
+          if (data.is_admin) {
+            setIsAdmin(true);
+          }
+        } catch (err) {
+          console.error('Failed to verify admin status:', err);
+        }
+      }
+    };
+
+    checkAdminStatus();
+  }, [user]);
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setMobileMenuOpen(false);
+    setIsAdmin(false); // Reset admin status on logout
     navigate("/login");
   };
 
@@ -65,6 +92,17 @@ export const Header = () => {
                   {isAuthenticated && (
                     <Link to="/my-questions" className="hover:text-indigo-600 transition-colors">
                       My Questions
+                    </Link>
+                  )}
+                  
+                  {/* Admin Dashboard Link - Desktop */}
+                  {isAuthenticated && isAdmin && (
+                    <Link 
+                      to="/admin" 
+                      className="hover:text-indigo-600 transition-colors flex items-center gap-1"
+                    >
+                      <span>Admin</span>
+                      <span className="w-2 h-2 bg-indigo-600 rounded-full"></span>
                     </Link>
                   )}
                 </nav>
@@ -154,6 +192,19 @@ export const Header = () => {
                   >
                     My Questions
                   </Link>
+                  
+                  {/* Admin Dashboard Link - Mobile */}
+                  {isAdmin && (
+                    <Link
+                      to="/admin"
+                      className="hover:text-indigo-600 py-2 border-b flex items-center gap-2"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      Admin Dashboard
+                      <span className="w-2 h-2 bg-indigo-600 rounded-full"></span>
+                    </Link>
+                  )}
+                  
                   <button
                     onClick={handleLogout}
                     className="mt-3 text-left text-red-500 hover:text-red-600 font-medium"

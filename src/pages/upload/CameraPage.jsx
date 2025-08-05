@@ -24,29 +24,31 @@ export const CameraPage = () => {
 
   const navigate = useNavigate();
 
-  const initCamera = async () => {
-    // If there's an existing stream, stop it before opening a new one
-    if (videoRef.current && videoRef.current.srcObject) {
-      videoRef.current.srcObject.getTracks().forEach(track => track.stop());
-    }
+ const initCamera = async () => {
+  if (videoRef.current && videoRef.current.srcObject) {
+    videoRef.current.srcObject.getTracks().forEach(track => track.stop());
+  }
 
-    try {
-      console.log('[CameraPage] Requesting camera access...');
-      const videoStream = await navigator.mediaDevices.getUserMedia({ video: true });
-      console.log('[CameraPage] Camera access granted', videoStream);
-      videoRef.current.srcObject = videoStream;
-      await videoRef.current.play();
-      setStream(videoStream);
-      setError('');
-    } catch (err) {
-      console.error('[CameraPage] Camera access error:', err);
-      if (err.name === 'NotReadableError') {
-        setError('Camera is already in use by another tab or application. Please close other camera sessions and try again.');
-      } else {
-        setError('Camera access denied or unavailable.');
-      }
+  try {
+    console.log('[CameraPage] Requesting camera access...');
+    const videoStream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }
+    });
+    console.log('[CameraPage] Back camera access granted', videoStream);
+    videoRef.current.srcObject = videoStream;
+    await videoRef.current.play();
+    setStream(videoStream);
+    setError('');
+  } catch (err) {
+    console.error('[CameraPage] Camera access error:', err);
+    if (err.name === 'NotReadableError') {
+      setError('Camera is already in use by another tab or application. Please close other camera sessions and try again.');
+    } else {
+      setError('Camera access denied or unavailable.');
     }
-  };
+  }
+};
+
 
   useEffect(() => {
     initCamera();

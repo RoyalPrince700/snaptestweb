@@ -27,6 +27,7 @@ import TextPreviewPage from './pages/upload/TextPreviewPage';
 import AboutUs from './pages/About';
 import ContactUs from './pages/ContactUs';
 import TermsPolicy from './pages/TermsPolicy';
+import AdminDashboard from './pages/AdminDashboard';
 
 // 🔐 Protected route component
 const ProtectedRoute = ({ children }) => {
@@ -70,6 +71,8 @@ function App() {
           <Route path="/confirm" element={<EmailConfirmation />} />
           <Route path="/how-it-works" element={<HowItWorks />} />
           <Route path="/terms-policy" element={<TermsPolicy />} />
+          <Route path="/admin" element={<PublicRoute><AdminDashboard /></PublicRoute>} />
+
 
           
           {/* Protected routes */}

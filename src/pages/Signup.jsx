@@ -30,7 +30,7 @@ export const Signup = () => {
 
     setLoading(true);
     setError(null);
-    console.log('Attempting signup with:', { email, passwordLength: password.length });
+    // console.log('Attempting signup with:', { email, passwordLength: password.length });
 
     try {
       const { data, error: signupError } = await supabase.auth.signUp({
@@ -41,7 +41,7 @@ export const Signup = () => {
 
         }
       });
-      console.log('Supabase signup response:', data, signupError);
+      // console.log('Supabase signup response:', data, signupError);
 
       if (signupError) throw signupError;
 

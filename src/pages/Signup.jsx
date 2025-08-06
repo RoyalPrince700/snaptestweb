@@ -22,7 +22,6 @@ export const Signup = () => {
 
   const handleSignup = async (e) => {
     e.preventDefault();
-    // Validate input
     if (!email || !password || password.length < 6) {
       setError("Please provide a valid email and a password of at least 6 characters.");
       return;
@@ -30,7 +29,6 @@ export const Signup = () => {
 
     setLoading(true);
     setError(null);
-    // console.log('Attempting signup with:', { email, passwordLength: password.length });
 
     try {
       const { data, error: signupError } = await supabase.auth.signUp({
@@ -38,10 +36,8 @@ export const Signup = () => {
         password,
         options: {
           emailRedirectTo: `${window.location.origin}/`
-
         }
       });
-      // console.log('Supabase signup response:', data, signupError);
 
       if (signupError) throw signupError;
 
@@ -51,20 +47,23 @@ export const Signup = () => {
         instructions: [
           "Open your email inbox.",
           "Find the message from SnapTest.",
-          "Click on the confirmation link provided."
+          "Click on the confirmation link provided.",
+          "Please note: Email delivery may take up to a few minutes, especially for Gmail users."
         ],
-        note: "If you did not receive the email, please check your spam folder or click 'Resend Confirmation'."
+        note: "If you do not see the email, check your Spam or Promotions folder. Be patient — it may take a few minutes to arrive."
       });
     } catch (err) {
-      console.error('Signup error caught:', err);
+      console.error("Signup error caught:", err);
       setError(err.message);
     } finally {
       setLoading(false);
     }
   };
-return (
+
+  return (
     <section className="min-h-screen flex items-center justify-center bg-gradient-to-br from-indigo-50 to-white px-4">
       <div className="max-w-4xl w-full flex flex-col md:flex-row rounded-2xl overflow-hidden shadow-xl">
+        
         {/* Decorative Side Panel */}
         <div className="w-full md:w-2/5 bg-gradient-to-br from-indigo-600 to-indigo-800 p-10 flex flex-col justify-between relative">
           <div className="absolute top-10 left-10 w-20 h-20 rounded-full bg-indigo-500/20"></div>
@@ -117,30 +116,30 @@ return (
 
           {/* Success Message */}
           {success ? (
-            <div className="bg-green-50 rounded-2xl p-8 mb-6 border border-green-200">
+            <div className="bg-indigo-50 rounded-2xl p-8 mb-6 border border-indigo-200">
               <div className="flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mb-4">
-                  <FiCheckCircle className="text-green-600 text-3xl" />
+                <div className="w-16 h-16 rounded-full bg-indigo-100 flex items-center justify-center mb-4">
+                  <FiCheckCircle className="text-indigo-600 text-3xl" />
                 </div>
-                <h3 className="text-xl font-bold text-green-800 mb-2">{success.title}</h3>
-                <p className="text-green-700 mb-4">{success.message}</p>
+                <h3 className="text-xl font-bold text-indigo-800 mb-2">{success.title}</h3>
+                <p className="text-indigo-700 mb-4">{success.message}</p>
 
                 <div className="bg-white p-5 rounded-xl w-full max-w-md mb-5">
                   <ul className="space-y-3">
                     {success.instructions.map((step, index) => (
                       <li key={index} className="flex items-start">
                         <div className="flex-shrink-0">
-                          <div className="w-6 h-6 rounded-full bg-green-100 flex items-center justify-center">
-                            <span className="text-green-600 text-sm font-bold">{index + 1}</span>
+                          <div className="w-6 h-6 rounded-full bg-indigo-100 flex items-center justify-center">
+                            <span className="text-indigo-600 text-sm font-bold">{index + 1}</span>
                           </div>
                         </div>
-                        <p className="ml-3 text-left text-green-700">{step}</p>
+                        <p className="ml-3 text-left text-indigo-700">{step}</p>
                       </li>
                     ))}
                   </ul>
                 </div>
 
-                <p className="text-sm text-green-600 mb-6">{success.note}</p>
+                <p className="text-sm text-indigo-600 mb-6">{success.note}</p>
 
                 <div className="flex flex-col sm:flex-row gap-4">
                   <button
@@ -151,10 +150,10 @@ return (
                   </button>
                   <button
                     onClick={async () => {
-                      console.log('Resend confirmation for:', email);
+                      console.log("Resend confirmation for:", email);
                       const { error: resendError } = await supabase.auth.resendVerificationEmail({ email });
                       if (resendError) {
-                        console.error('Resend error:', resendError);
+                        console.error("Resend error:", resendError);
                         setError(resendError.message);
                       }
                     }}
